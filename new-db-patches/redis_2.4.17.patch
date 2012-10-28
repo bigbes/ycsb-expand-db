@@ -1,0 +1,76 @@
+diff -U 2 redis-2.4.17/src/Makefile redis-2.4.17-patched/src/Makefile
+--- redis-2.4.17/src/Makefile   2012-08-30 19:42:47.000000000 +0400
++++ redis-2.4.17-patched/src/Makefile   2012-09-28 15:13:24.069262651 +0400
+@@ -31,5 +31,5 @@
+ else
+   CFLAGS?=-std=c99 -pedantic $(OPTIMIZATION) -Wall -W $(ARCH) $(PROF)
+-  CCLINK?=-lm -pthread
++  CCLINK?=-lm -pthread -lrt
+   DEBUG?=-g -rdynamic -ggdb
+ endif
+diff -U 2 redis-2.4.17/src/rdb.c redis-2.4.17-patched/src/rdb.c
+--- redis-2.4.17/src/rdb.c      2012-08-30 19:42:47.000000000 +0400
++++ redis-2.4.17-patched/src/rdb.c      2012-09-28 15:08:15.613264385 +0400
+@@ -399,4 +399,5 @@
+     int j;
+     time_t now = time(NULL);
++       redisLog(REDIS_NOTICE, "starting DB Saving");
+ 
+     /* Wait for I/O therads to terminate, just in case this is a
+Только в redis-2.4.17-patched/src/: rdb.c~
+diff -U 2 redis-2.4.17/src/redis.c redis-2.4.17-patched/src/redis.c
+--- redis-2.4.17/src/redis.c    2012-08-30 19:42:47.000000000 +0400
++++ redis-2.4.17-patched/src/redis.c    2012-09-28 15:12:38.053262910 +0400
+@@ -202,8 +202,11 @@
+     const int syslogLevelMap[] = { LOG_DEBUG, LOG_INFO, LOG_NOTICE, LOG_WARNING };
+     const char *c = ".-*#";
+-    time_t now = time(NULL);
++    //time_t now = time(NULL);
++       struct timespec now;
++       clock_gettime(CLOCK_REALTIME, &now);
++       double _now = now.tv_sec + (double)now.tv_nsec / 1000000000;
+     va_list ap;
+     FILE *fp;
+-    char buf[64];
++    //char buf[64];
+     char msg[REDIS_MAX_LOGMSG_LEN];
+ 
+@@ -217,6 +220,6 @@
+     va_end(ap);
+ 
+-    strftime(buf,sizeof(buf),"%d %b %H:%M:%S",localtime(&now));
+-    fprintf(fp,"[%d] %s %c %s\n",(int)getpid(),buf,c[level],msg);
++    //strftime(buf,sizeof(buf),"%d %b %H:%M:%S",localtime(&now));
++    fprintf(fp,"[%d] %.6f %c %s\n",(int)getpid(),_now,c[level],msg);
+     fflush(fp);
+ 
+@@ -1761,5 +1764,5 @@
+ 
+ int main(int argc, char **argv) {
+-    time_t start;
++    //time_t start;
+ 
+     initServerConfig();
+@@ -1792,12 +1795,18 @@
+     linuxOvercommitMemoryWarning();
+ #endif
+-    start = time(NULL);
++    //start = time(NULL);
++       struct timespec _b;
++       clock_gettime(CLOCK_REALTIME, &_b);
++       double _bd = _b.tv_sec + (double )_b.tv_nsec / 1000000000;
+     if (server.appendonly) {
+         if (loadAppendOnlyFile(server.appendfilename) == REDIS_OK)
+-            redisLog(REDIS_NOTICE,"DB loaded from append only file: %ld seconds",time(NULL)-start);
++                       clock_gettime(CLOCK_REALTIME, &_b);
++                       double _be = _b.tv_sec + (double ) _b.tv_nsec / 1000000000;
++            redisLog(REDIS_NOTICE,"DB loaded from append only file: %.6f seconds",_be-_bd);
+     } else {
+         if (rdbLoad(server.dbfilename) == REDIS_OK) {
+-            redisLog(REDIS_NOTICE,"DB loaded from disk: %ld seconds",
+-                time(NULL)-start);
++                       clock_gettime(CLOCK_REALTIME, &_b);
++                       double _be = _b.tv_sec + (double ) _b.tv_nsec / 1000000000;
++            redisLog(REDIS_NOTICE,"DB loaded from disk: %.6f seconds", _be-_bd);
+         } else if (errno != ENOENT) {
+             redisLog(REDIS_WARNING,"Fatal error loading the DB. Exiting.");
