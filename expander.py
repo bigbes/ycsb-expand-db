@@ -133,7 +133,7 @@ try:
 except OSError:
 	pass
 
-conffile.write('DB = ' + str(DBS)[1:-1] + '\n')
+conffile.write('DB = ' + str(DBS)[1:-1] + '\nport=2000\n')
 conffile.write('[DBS]')
 
 os.chdir('envir')
