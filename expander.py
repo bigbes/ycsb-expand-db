@@ -7,11 +7,13 @@ import urllib2
 import tarfile
 
 DBS = ['MongoDB', 'Redis', 'Tarantool']
-MongoDB = ["2.2.0"]
-Redis = ["2.4.17", "2.6.0"]
+#DBS = ['Redis', 'Tarantool']
+MongoDB = ["2.2.1"]
+#Redis = ["2.4.17", "2.6.0"]
+Redis = ["2.6.0"]
 Tarantool_client = False
 Tarantool = [
-		('master', '1af7b0b9c61222369c77a87d4e683e258d36753a'),
+#		('master', '1af7b0b9c61222369c77a87d4e683e258d36753a'),
 		('master-stable', '90918f898b3975351211766b939d1338a25dfc84')
 		]
 
@@ -102,11 +104,11 @@ def get_redis(version):
 	return ans
 
 
-def get_mongodb(version):
+def dwn_mongodb(version):
 	ans = ('mongodb_' + version, os.getcwd() + '/mongodb_' + version)
 	print 'Downloading MongoDB ' + version
 	try:
-		os.mkdir("mongodb_"+version)
+		os.mkdir(ans[0])
 	except OSError:
 		return ans
 		
@@ -121,19 +123,62 @@ def get_mongodb(version):
 	tar.close()
 
 	print 'Copying MongoDB files'
-	copy(archive+"/bin/mongod", "mongodb_"+version)
-	copy(archive+"/bin/mongo", "mongodb_"+version)
-	
+	copy(archive+"/bin/mongod", ans[0])
+	copy(archive+"/bin/mongo", ans[0])
+
 	rmtree (archive)
 	os.remove(archive+".tar.gz")
 	return ans
+
+def get_mongodb(version):
+	ans = ('mongodb_' + version, os.getcwd() + '/mongodb_' + version)
+	print 'Downloading MongoDB ' + version
+	try:
+		os.mkdir(ans[0])
+	except OSError:
+		return ans
+
+	archive = ('mongodb-src-r'+version)
+	url = "http://fastdl.mongodb.org/src/{0}.tar.gz".format(archive)
+	source = urllib2.urlopen(url)
+	
+	open(archive+".tar.gz", "wb").write(source.read())
+	
+	tar = tarfile.open(archive+".tar.gz", "r:gz")
+	tar.extractall()
+	tar.close()
+
+	print "Building MongoDB"
+	os.chdir(archive)
+#	tmp = 
+	tmp = Popen(split("patch <../../new-db-patches/mongodb_{1}.patch -p1".format(curdir+'/new-db-patches/', version))).wait()
+	if tmp != 0:
+		print 'MongoDB patching failed ' + version + tmp
+		exit()
+	tmp = Popen(split("Scons mongod mongo -j 5")).wait()
+	if tmp != 0:
+		print 'MongoDB make failed ' + version + tmp
+		exit()
+	os.chdir('..')
+
+	print "Copying MongoDB files"
+	copy(archive+"/mongod", ans[0])
+	copy(archive+"/mongo", ans[0])
+
+	rmtree (archive)
+	os.remove(archive + '.tar.gz')
+	return ans	
 
 try:
 	os.mkdir('envir')
 except OSError:
 	pass
 
+<<<<<<< HEAD
+conffile.write('DB = ' + str(DBS)[1:-1] + '\nport = 2000\n')
+=======
 conffile.write('DB = ' + str(DBS)[1:-1] + '\nport=2000\n')
+>>>>>>> 91c536cf78cdd6caadd91128db44117fbc9386aa
 conffile.write('[DBS]')
 
 os.chdir('envir')
