@@ -2,6 +2,7 @@
 from subprocess import Popen, PIPE
 from shlex import split
 from shutil import copy2 as copy, rmtree
+import sys
 import os
 import urllib2
 import tarfile
@@ -9,11 +10,11 @@ import tarfile
 DBS = ['MongoDB', 'Redis', 'Tarantool']
 #DBS = ['Redis', 'Tarantool']
 MongoDB = ["2.2.1"]
-#Redis = ["2.4.17", "2.6.0"]
-Redis = ["2.6.0"]
+Redis = ["2.4.17", "2.6.0"]
+#Redis = ["2.6.0"]
 Tarantool_client = False
 Tarantool = [
-#		('master', '1af7b0b9c61222369c77a87d4e683e258d36753a'),
+		('master', '1af7b0b9c61222369c77a87d4e683e258d36753a'),
 		('master-stable', '90918f898b3975351211766b939d1338a25dfc84')
 		]
 
@@ -32,17 +33,21 @@ def get_tarantool(container):
 	revision = container[1]
 	client = Tarantool_client
 	ans = ('tnt_' + branch, os.getcwd() + '/tnt_' + branch)
-	print 'Downloading Tarantool ' + branch + ' ' + revision
+	print 'Tarantool ' + branch + ' ' + revision + '..',
+	sys.stdout.flush()
 	try:
 		os.mkdir("tnt_"+branch)
 	except OSError:
 		print 'Tarantool already been built'
 		return ans
+	print 'Downloading..',
+	sys.stdout.flush()
 	Popen(split("git clone git://github.com/mailru/tarantool.git -b {0} tarantool-{0}".format(branch)), stdout=logfile, stderr=logfile).wait()
 	os.chdir("tarantool-" + branch)
 	Popen(split("git checkout -f " + revision), stdout=logfile, stderr=logfile).wait()
 	
-	print 'Building Tarantool' + (' with client' if client else '')
+	print 'Building' + (' with client' if client else '') + '..',
+	sys.stdout.flush()
 	Popen(split("cmake . "+('-DENABLE_CLIENT=TRUE' if client else '')), stdout=logfile, stderr=logfile).wait()
 	tmp = Popen(split("make -j3"), stdout=logfile, stderr=logfile)
 	tmp.wait()
@@ -50,7 +55,8 @@ def get_tarantool(container):
 		print 'Tarantool make failed ' + branch + ' ' + version
 		exit()
 
-	print 'Copying Tarantool files'
+	print 'Copying..',
+	sys.stdout.flush()
 	os.chdir("..")
 	try:
 		copy("tarantool-{0}/src/box/tarantool_box".format(branch), "tnt_"+branch)
@@ -65,17 +71,21 @@ def get_tarantool(container):
 	os.chdir("..")
 	
 	rmtree("tarantool-" + branch)
+	print 'Done!'
 	return ans
 
 def get_redis(version):
 	ans = ('rds_' + version, os.getcwd() + '/rds_' + version)
-	print 'Building Redis ' + version
+	print 'Redis ' + version + '..',
+	sys.stdout.flush()
 	try:
 		os.mkdir("rds_"+version)
 	except OSError:
 		print 'Redis already been built'
 		return ans
-
+	
+	print 'Downloading..',
+	sys.stdout.flush()
 	archive = "redis-"+version
 	url = "http://redis.googlecode.com/files/{0}.tar.gz".format(archive)
 	source = urllib2.urlopen(url)
@@ -86,6 +96,8 @@ def get_redis(version):
 	tar.extractall()
 	tar.close()
 
+	print 'Building..',
+	sys.stdout.flush()
 	os.chdir(archive)
 	tmp = Popen(split("make -j4"), stdout=logfile, stderr=logfile)
 	tmp.wait()
@@ -94,19 +106,22 @@ def get_redis(version):
 		exit()
 	os.chdir('..')
 	
-	print 'Copying Redis files'
+	print 'Copying..',
+	sys.stdout.flush()
 	copy(archive+'/src/redis-cli','rds_'+version)
 	copy(archive+'/src/redis-server','rds_'+version)
 	copy(curdir+'/confs/redis.conf', 'rds_'+version)
 
 	rmtree(archive)
 	os.remove(archive+".tar.gz")
+	print 'Done!'
 	return ans
 
 
 def dwn_mongodb(version):
 	ans = ('mongodb_' + version, os.getcwd() + '/mongodb_' + version)
-	print 'Downloading MongoDB ' + version
+	print 'Downloading MongoDB ' + version + '..',
+	sys.stdout.flush()
 	try:
 		os.mkdir(ans[0])
 	except OSError:
@@ -122,22 +137,28 @@ def dwn_mongodb(version):
 	tar.extractall()
 	tar.close()
 
-	print 'Copying MongoDB files'
+	print 'Copying MongoDB files ..',
+	sys.stdout.flush()
 	copy(archive+"/bin/mongod", ans[0])
 	copy(archive+"/bin/mongo", ans[0])
 
 	rmtree (archive)
 	os.remove(archive+".tar.gz")
+	print 'Done!'
 	return ans
 
 def get_mongodb(version):
 	ans = ('mongodb_' + version, os.getcwd() + '/mongodb_' + version)
-	print 'Downloading MongoDB ' + version
+	print 'MongoDB ' + version + '..',
+	sys.stdout.flush()
 	try:
 		os.mkdir(ans[0])
 	except OSError:
+		print 'MongoDB already been built'
 		return ans
 
+	print 'Downloading..',
+	sys.stdout.flush()
 	archive = ('mongodb-src-r'+version)
 	url = "http://fastdl.mongodb.org/src/{0}.tar.gz".format(archive)
 	source = urllib2.urlopen(url)
@@ -148,25 +169,29 @@ def get_mongodb(version):
 	tar.extractall()
 	tar.close()
 
-	print "Building MongoDB"
+	print "Patching..",
+	sys.stdout.flush()
 	os.chdir(archive)
-#	tmp = 
-	tmp = Popen(split("patch <../../new-db-patches/mongodb_{1}.patch -p1".format(curdir+'/new-db-patches/', version))).wait()
+	tmp = Popen(split("patch  -i ../../new-db-patches/mongodb_{1}.patch -p1".format(curdir+'/new-db-patches/', version)), stdout=logfile, stderr=logfile).wait()
 	if tmp != 0:
 		print 'MongoDB patching failed ' + version + tmp
 		exit()
-	tmp = Popen(split("Scons mongod mongo -j 5")).wait()
+	print "Building..",
+	sys.stdout.flush()
+	tmp = Popen(split("scons mongod mongo -j 5"), stdout=logfile, stderr=logfile).wait()
 	if tmp != 0:
 		print 'MongoDB make failed ' + version + tmp
 		exit()
 	os.chdir('..')
 
-	print "Copying MongoDB files"
+	print "Copying..",
+	sys.stdout.flush()
 	copy(archive+"/mongod", ans[0])
 	copy(archive+"/mongo", ans[0])
 
 	rmtree (archive)
 	os.remove(archive + '.tar.gz')
+	print "Done!"
 	return ans	
 
 try:
@@ -174,11 +199,7 @@ try:
 except OSError:
 	pass
 
-<<<<<<< HEAD
 conffile.write('DB = ' + str(DBS)[1:-1] + '\nport = 2000\n')
-=======
-conffile.write('DB = ' + str(DBS)[1:-1] + '\nport=2000\n')
->>>>>>> 91c536cf78cdd6caadd91128db44117fbc9386aa
 conffile.write('[DBS]')
 
 os.chdir('envir')
