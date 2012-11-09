@@ -8,11 +8,9 @@ import urllib2
 import tarfile
 
 DBS = ['MongoDB', 'Redis', 'Tarantool']
-#DBS = ['Redis', 'Tarantool']
 MongoDB = ["2.2.1"]
 Redis = ["2.4.17", "2.6.0"]
-#Redis = ["2.6.0"]
-Tarantool_client = False
+Tarantool_client = True
 Tarantool = [
 		('master', '1af7b0b9c61222369c77a87d4e683e258d36753a'),
 		('master-stable', '90918f898b3975351211766b939d1338a25dfc84')
@@ -49,10 +47,13 @@ def get_tarantool(container):
 	print 'Building' + (' with client' if client else '') + '..',
 	sys.stdout.flush()
 	Popen(split("cmake . "+('-DENABLE_CLIENT=TRUE' if client else '')), stdout=logfile, stderr=logfile).wait()
-	tmp = Popen(split("make -j3"), stdout=logfile, stderr=logfile)
+	tmp = Popen(split("make -j2"), stdout=logfile, stderr=logfile)
 	tmp.wait()
 	if tmp.returncode != 0:
-		print 'Tarantool make failed ' + branch + ' ' + version
+		print 'Tarantool make failed ' + branch + ' ' + revision
+		os.chdir('..')
+		rmtree(ans[0])
+		rmtree('tarantool-' + branch)
 		exit()
 
 	print 'Copying..',
@@ -103,6 +104,9 @@ def get_redis(version):
 	tmp.wait()
 	if tmp.returncode != 0:
 		print 'Redis make failed ' + version
+		os.chdir('..')
+		rmtree(ans[0])
+		rmtree(archive)
 		exit()
 	os.chdir('..')
 	
@@ -175,12 +179,18 @@ def get_mongodb(version):
 	tmp = Popen(split("patch  -i ../../new-db-patches/mongodb_{1}.patch -p1".format(curdir+'/new-db-patches/', version)), stdout=logfile, stderr=logfile).wait()
 	if tmp != 0:
 		print 'MongoDB patching failed ' + version + tmp
+		os.chdir('..')
+		rmtree(ans[0])
+		rmtree(archive)
 		exit()
 	print "Building..",
 	sys.stdout.flush()
 	tmp = Popen(split("scons mongod mongo -j 5"), stdout=logfile, stderr=logfile).wait()
 	if tmp != 0:
 		print 'MongoDB make failed ' + version + tmp
+		os.chdir('..')
+		rmtree(ans[0])
+		rmtree(archive)
 		exit()
 	os.chdir('..')
 
