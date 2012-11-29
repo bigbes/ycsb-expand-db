@@ -79,7 +79,7 @@ def get_tarantool(container):
 		copy("tarantool-{0}/src/box/tarantool_box".format(branch), i[0])
 		if client:
 			copy("tarantool-{0}/client/tarantool/tarantool".format(branch), i[0])
-		copy(curdir+"/confs/tarantool_"+i[2]+".cfg", i[0])
+		copy(curdir+"/confs/tarantool_"+i[2]+".cfg", i[0]+'/tarantool.cfg')
 	
 		os.chdir(i[0])
 		Popen(split("./tarantool_box --init-storage"), stdout=logfile, stderr=logfile).wait()
