@@ -68,7 +68,8 @@ def get_tarantool(container):
 	if Popen(split("make -j"+Threads), stdout=logfile, stderr=logfile).wait() != 0:
 		print 'Tarantool make failed ' + branch + ' ' + revision
 		os.chdir('..')
-		rmtree(ans[0])
+		for i in ans:
+			rmtree(i[0])
 		rmtree('tarantool-' + branch)
 		exit()
 
@@ -97,7 +98,7 @@ def get_redis(version):
 		os.mkdir("rds_"+version)
 	except OSError:
 		print 'Redis already been built'
-		return ans
+		return [ans]
 	
 	_print('Downloading..')
 
@@ -127,7 +128,7 @@ def get_redis(version):
 
 	copy(archive+'/src/redis-cli','rds_'+version)
 	copy(archive+'/src/redis-server','rds_'+version)
-	copy(curdir+'/confs/redis.conf', 'rds_'+version)
+	copy(curdir+'/confs/redis_%s.conf' % (version), 'rds_'+version+'/redis.conf')
 
 	rmtree(archive)
 	os.remove(archive+".tar.gz")
@@ -141,7 +142,7 @@ def get_mongodb(version):
 		os.mkdir(ans[0])
 	except OSError:
 		print 'MongoDB already been built'
-		return ans
+		return [ans]
 
 	_print('Downloading..')
 	archive = ('mongodb-src-r'+version)
@@ -193,14 +194,14 @@ os.chdir('envir')
 for i in DBS:
 	for j in locals()[i]:
 		_dir = globals()['get_'+i.lower()](j)
-		for j in _dir:
+		for k in _dir:
 			conffile.write(confstr1 % {
-				'name' : j[0],
-				'_dir' : j[1],
+				'name' : k[0],
+				'_dir' : k[1],
 				'_type': i
 				})
 			dbfile.write(confstr2 % {
-				'name' : j[0],
+				'name' : k[0],
 				'_type' : i.lower(),
 				'_host' : gethostname(),
 				'_port' : Port
