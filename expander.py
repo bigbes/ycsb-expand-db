@@ -2,74 +2,88 @@
 from subprocess import Popen, PIPE
 from shlex import split
 from shutil import copy2 as copy, rmtree
+from socket import gethostname
 import sys
 import os
 import urllib2
 import tarfile
 
+Threads = '3'
 DBS = ['MongoDB', 'Redis', 'Tarantool']
-MongoDB = ["2.2.1"]
-Redis = ["2.4.17", "2.6.0"]
+MongoDB = ["2.2.2"]
+Redis = ["2.6.5"]
 Tarantool_client = True
 Tarantool = [
-		('master', '1af7b0b9c61222369c77a87d4e683e258d36753a'),
-		('master-stable', '90918f898b3975351211766b939d1338a25dfc84')
+		('master', '02a8b0c54dedc087600b491fe467a76345b73480', ['tree', 'hash'])
 		]
 
 curdir = os.getcwd()
 null = open('/dev/null', 'w')
 logfile = open('logfile', 'w')
 conffile = open('_db_serv.cfg', 'w')
+dbfile = open('_bench.cfg.bak', 'w')
 
-confstr = """
+Port = '2000'
+
+confstr1 = """
 	[[%(name)s]]
-		_d=%(_dir)s
-		db=%(_type)s"""
+		_d = %(_dir)s
+		db = %(_type)s"""
+confstr2 = """
+	[[%(name)s]]
+		_type = %(_type)s
+		host = %(_host)s
+		db_port = 
+		serv_port = %(_port)s"""
+
+def _print(str):
+	print str,
+	sys.stdout.flush()
 
 def get_tarantool(container):
 	branch = container[0]
 	revision = container[1]
 	client = Tarantool_client
-	ans = ('tnt_' + branch, os.getcwd() + '/tnt_' + branch)
-	print 'Tarantool ' + branch + ' ' + revision + '..',
-	sys.stdout.flush()
-	try:
-		os.mkdir("tnt_"+branch)
-	except OSError:
-		print 'Tarantool already been built'
-		return ans
-	print 'Downloading..',
-	sys.stdout.flush()
+	rev = container[1][-6:-1]
+	fstr = 'tnt_' + branch + '_%s_'+rev
+	ans = [(fstr % (i), os.getcwd() + '/' + fstr %(i), i) for i in container[2]]
+	_print('Tarantool ' + branch + ' ' + revision + '..')
+	for i in ans:
+		try:
+			os.mkdir(i[0])
+		except OSError:
+			print 'Tarantool already been built'
+			return ans
+	_print('Downloading..')
 	Popen(split("git clone git://github.com/mailru/tarantool.git -b {0} tarantool-{0}".format(branch)), stdout=logfile, stderr=logfile).wait()
 	os.chdir("tarantool-" + branch)
 	Popen(split("git checkout -f " + revision), stdout=logfile, stderr=logfile).wait()
 	
-	print 'Building' + (' with client' if client else '') + '..',
-	sys.stdout.flush()
-	Popen(split("cmake . "+('-DENABLE_CLIENT=TRUE' if client else '')), stdout=logfile, stderr=logfile).wait()
-	tmp = Popen(split("make -j2"), stdout=logfile, stderr=logfile)
-	tmp.wait()
-	if tmp.returncode != 0:
+	_print('Building' + (' with client' if client else '') + '..')
+
+	envir = dict(os.environ)
+	envir['CFLAGS'] = ' -march=native '
+	Popen(split("cmake . "+('-DENABLE_CLIENT=TRUE' if client else '')), stdout=logfile, stderr=logfile, env=envir).wait()
+	
+	if Popen(split("make -j"+Threads), stdout=logfile, stderr=logfile).wait() != 0:
 		print 'Tarantool make failed ' + branch + ' ' + revision
 		os.chdir('..')
 		rmtree(ans[0])
 		rmtree('tarantool-' + branch)
 		exit()
 
-	print 'Copying..',
-	sys.stdout.flush()
+	_print('Copying..')
+
 	os.chdir("..")
-	try:
-		copy("tarantool-{0}/src/box/tarantool_box".format(branch), "tnt_"+branch)
-	except:
-		copy("tarantool-{0}/mod/box/tarantool_box".format(branch), "tnt_"+branch)
-	if client:
-		copy("tarantool-{0}/client/src/tarantool".format(branch), "tnt_"+branch)
-	copy(curdir+"/confs/tarantool.cfg", "tnt_"+branch)
+	for i in ans:
+		copy("tarantool-{0}/src/box/tarantool_box".format(branch), i[0])
+		if client:
+			copy("tarantool-{0}/client/tarantool/tarantool".format(branch), i[0])
+		copy(curdir+"/confs/tarantool_"+i[2]+".cfg", i[0])
 	
-	os.chdir("tnt_"+branch)
-	Popen(split("./tarantool_box --init-storage"), stdout=logfile, stderr=logfile).wait()
-	os.chdir("..")
+		os.chdir(i[0])
+		Popen(split("./tarantool_box --init-storage"), stdout=logfile, stderr=logfile).wait()
+		os.chdir("..")
 	
 	rmtree("tarantool-" + branch)
 	print 'Done!'
@@ -77,16 +91,16 @@ def get_tarantool(container):
 
 def get_redis(version):
 	ans = ('rds_' + version, os.getcwd() + '/rds_' + version)
-	print 'Redis ' + version + '..',
-	sys.stdout.flush()
+	_print('Redis ' + version + '..')
+
 	try:
 		os.mkdir("rds_"+version)
 	except OSError:
 		print 'Redis already been built'
 		return ans
 	
-	print 'Downloading..',
-	sys.stdout.flush()
+	_print('Downloading..')
+
 	archive = "redis-"+version
 	url = "http://redis.googlecode.com/files/{0}.tar.gz".format(archive)
 	source = urllib2.urlopen(url)
@@ -97,10 +111,9 @@ def get_redis(version):
 	tar.extractall()
 	tar.close()
 
-	print 'Building..',
-	sys.stdout.flush()
+	_print('Building..')
 	os.chdir(archive)
-	tmp = Popen(split("make -j4"), stdout=logfile, stderr=logfile)
+	tmp = Popen(split("make -j"+Threads), stdout=logfile, stderr=logfile)
 	tmp.wait()
 	if tmp.returncode != 0:
 		print 'Redis make failed ' + version
@@ -110,8 +123,8 @@ def get_redis(version):
 		exit()
 	os.chdir('..')
 	
-	print 'Copying..',
-	sys.stdout.flush()
+	_print('Copying..')
+
 	copy(archive+'/src/redis-cli','rds_'+version)
 	copy(archive+'/src/redis-server','rds_'+version)
 	copy(curdir+'/confs/redis.conf', 'rds_'+version)
@@ -119,50 +132,18 @@ def get_redis(version):
 	rmtree(archive)
 	os.remove(archive+".tar.gz")
 	print 'Done!'
-	return ans
-
-
-def dwn_mongodb(version):
-	ans = ('mongodb_' + version, os.getcwd() + '/mongodb_' + version)
-	print 'Downloading MongoDB ' + version + '..',
-	sys.stdout.flush()
-	try:
-		os.mkdir(ans[0])
-	except OSError:
-		return ans
-		
-	archive = "mongodb-linux-x86_64-"+version
-	url = "http://fastdl.mongodb.org/linux/{0}.tgz".format(archive)
-	source = urllib2.urlopen(url)
-
-	open(archive+".tar.gz", "wb").write(source.read())
-
-	tar = tarfile.open(archive+".tar.gz", "r:gz")
-	tar.extractall()
-	tar.close()
-
-	print 'Copying MongoDB files ..',
-	sys.stdout.flush()
-	copy(archive+"/bin/mongod", ans[0])
-	copy(archive+"/bin/mongo", ans[0])
-
-	rmtree (archive)
-	os.remove(archive+".tar.gz")
-	print 'Done!'
-	return ans
+	return [ans]
 
 def get_mongodb(version):
 	ans = ('mongodb_' + version, os.getcwd() + '/mongodb_' + version)
-	print 'MongoDB ' + version + '..',
-	sys.stdout.flush()
+	_print('MongoDB ' + version + '..')
 	try:
 		os.mkdir(ans[0])
 	except OSError:
 		print 'MongoDB already been built'
 		return ans
 
-	print 'Downloading..',
-	sys.stdout.flush()
+	_print('Downloading..')
 	archive = ('mongodb-src-r'+version)
 	url = "http://fastdl.mongodb.org/src/{0}.tar.gz".format(archive)
 	source = urllib2.urlopen(url)
@@ -173,20 +154,16 @@ def get_mongodb(version):
 	tar.extractall()
 	tar.close()
 
-	print "Patching..",
-	sys.stdout.flush()
+	_print("Patching..")
 	os.chdir(archive)
-	tmp = Popen(split("patch  -i ../../new-db-patches/mongodb_{1}.patch -p1".format(curdir+'/new-db-patches/', version)), stdout=logfile, stderr=logfile).wait()
-	if tmp != 0:
+	if Popen(split("patch  -i ../../new-db-patches/mongodb_{1}.patch -p1".format(curdir+'/new-db-patches/', version)), stdout=logfile, stderr=logfile).wait() != 0:
 		print 'MongoDB patching failed ' + version + tmp
 		os.chdir('..')
 		rmtree(ans[0])
 		rmtree(archive)
 		exit()
-	print "Building..",
-	sys.stdout.flush()
-	tmp = Popen(split("scons mongod mongo -j 5"), stdout=logfile, stderr=logfile).wait()
-	if tmp != 0:
+	_print ("Building..")
+	if Popen(split("scons mongod mongo -j "+Threads), stdout=logfile, stderr=logfile).wait() != 0:
 		print 'MongoDB make failed ' + version + tmp
 		os.chdir('..')
 		rmtree(ans[0])
@@ -194,33 +171,41 @@ def get_mongodb(version):
 		exit()
 	os.chdir('..')
 
-	print "Copying..",
-	sys.stdout.flush()
+	_print ("Copying..")
 	copy(archive+"/mongod", ans[0])
 	copy(archive+"/mongo", ans[0])
 
 	rmtree (archive)
 	os.remove(archive + '.tar.gz')
 	print "Done!"
-	return ans	
+	return [ans]
 
 try:
 	os.mkdir('envir')
 except OSError:
 	pass
 
-conffile.write('DB = ' + str(DBS)[1:-1] + '\nport = 2000\n')
+conffile.write('DB = ' + str(DBS)[1:-1] + '\nport = '+Port+'\n')
 conffile.write('[DBS]')
+dbfile.write('[NET_DB]')
 
 os.chdir('envir')
 for i in DBS:
 	for j in locals()[i]:
 		_dir = globals()['get_'+i.lower()](j)
-		if isinstance(_dir, (tuple, list)):
-			conffile.write(confstr % {
-				'name' : _dir[0],
-				'_dir' : _dir[1],
+		for j in _dir:
+			conffile.write(confstr1 % {
+				'name' : j[0],
+				'_dir' : j[1],
 				'_type': i
 				})
+			dbfile.write(confstr2 % {
+				'name' : j[0],
+				'_type' : i.lower(),
+				'_host' : gethostname(),
+				'_port' : Port
+				})
+
+
 print 'Done!'
 os.chdir('..')
