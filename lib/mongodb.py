@@ -89,7 +89,9 @@ class MongoDB(DB):
 			print "<<MongoDB already started."
 		print ">>Starting MongoDB"
 		args = shlex.split("./"+self._exe+self.args_to_str())
+#		args = shlex.split("./"+self._exe+" -f mongodb.conf")
 		self._run = Popen(args)
+		sleep(2)
 		print ">>MongoDB PID:", self._run.pid
 	
 	def stop(self):

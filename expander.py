@@ -63,7 +63,7 @@ def get_tarantool(container):
 
 	envir = dict(os.environ)
 	envir['CFLAGS'] = ' -march=native '
-	Popen(split("cmake . "+('-DENABLE_CLIENT=TRUE' if client else '')), stdout=logfile, stderr=logfile, env=envir).wait()
+	Popen(split("cmake . -DENABLE_TRACE=OFF -DCMAKE_BUILD_TYPE=Release "+('-DENABLE_CLIENT=TRUE' if client else '')), stdout=logfile, stderr=logfile, env=envir).wait()
 	
 	if Popen(split("make -j"+Threads), stdout=logfile, stderr=logfile).wait() != 0:
 		print 'Tarantool make failed ' + branch + ' ' + revision
@@ -114,9 +114,7 @@ def get_redis(version):
 
 	_print('Building..')
 	os.chdir(archive)
-	tmp = Popen(split("make -j"+Threads), stdout=logfile, stderr=logfile)
-	tmp.wait()
-	if tmp.returncode != 0:
+	if Popen(split("make -j"+Threads), stdout=logfile, stderr=logfile) != 0:
 		print 'Redis make failed ' + version
 		os.chdir('..')
 		rmtree(ans[0])
