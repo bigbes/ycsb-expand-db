@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 
 from db import DB
-from db import timet, chroot_
+from db import timet, chroot_, get_time
 
 import shlex
 import shutil
 import os
 import fileinput
+import socket
 
 from time import sleep, time
 from subprocess import PIPE, STDOUT, Popen
@@ -19,15 +20,15 @@ class MongoDB(DB):
 	_cnf = "mongodb.conf"
 	_log = "mongodb.log"
 
-	st_args = { 
-			'dbpath'  			: './temp',
-			'logpath' 			: './mongodb.log',
+	st_args = {
+			'dbpath'			: './temp',
+			'logpath'			: './mongodb.log',
 			'diaglog'			: '3',
 			'logappend'			: '',
 			'nojournal'			: '',
-			'noauth'  			: '',
-			'nohttpinterface' 		: '',
-			'noprealloc' 			: ''
+			'noauth'			: '',
+			'nohttpinterface'	: '',
+			'noprealloc'		: ''
 			}
 
 	def __init__(self, _dir):
@@ -36,7 +37,7 @@ class MongoDB(DB):
 		self.port = '27017'
 		self._args = deepcopy(self.st_args)
 		self.add_arg(('port', self.port))
-		if not (os.path.exists(self._dir+'/'+self._exe) and 
+		if not (os.path.exists(self._dir+'/'+self._exe) and
 				os.path.exists(self._dir+'/'+self._cli)):
 			raise Exception('No such file or directory in DB: ' + self._dir)
 
@@ -46,7 +47,7 @@ class MongoDB(DB):
 
 	def __del__(self):
 		self.stop()
-	
+
 	@chroot_
 	def cleanup(self):
 		try:
@@ -61,47 +62,50 @@ class MongoDB(DB):
 	def init(self):
 		self.cleanup()
 		print ">>Cleanup MongoDB"
-	
-#add set_port for some reason in other DB
+
 	def flush_db(self):
-		if self._run:
-			Popen(shlex.split(self._dir+self._cli+"localhost"
-				+self.port+"/ycsb --eval \"db.dropDatabase()\"")).wait()
-			print ">>Flushing MongoDB"
-		else:
+		if not self._run:
 			print "<<Start MongoDB, Please"
-	
+			return -1
+		Popen(shlex.split(self._dir+self._cli+"localhost"
+			+self.port+"/ycsb --eval \"db.dropDatabase()\"")).wait()
+		print ">>Flushing MongoDB"
+
 	def	load_snapshot(self):
-		print "<<Not Yet Implemented"
-		return -1
+		if self._run:
+			print "<<Stop MongoDB, Please"
+			return -1
+		return get_time(self)
 
 	def add_arg(self, args):
 		self._args[str(args[0])] = str(args[1])
 
-
+	# Cause MongoDB use Memory Maped files - not implementing
 	def save_snapshot(self):
 		print "<<Not Yet Implemented"
-		return -1
+		return 0
 
 	@chroot_
-	def start(self):
+	def start(self, delay=True):
+		def args_to_str(self):
+			return ''.join(map(lambda x: ' --'+x+' '+self._args[x], self._args))
+
 		if self._run:
 			print "<<MongoDB already started."
+			return -1
 		print ">>Starting MongoDB"
-		args = shlex.split("./"+self._exe+self.args_to_str())
-#		args = shlex.split("./"+self._exe+" -f mongodb.conf")
+#		args = shlex.split("./"+self._exe+self.args_to_str())
+		args = shlex.split("./"+self._exe+" -f mongodb.conf")
 		self._run = Popen(args)
-		sleep(2)
+		if delay:
+			get_time(self)
 		print ">>MongoDB PID:", self._run.pid
-	
+
 	def stop(self):
-		if self._run:
-			self._run.send_signal(2)
-			self._run.wait()
-			print ">>Stopping MongoDB"
+		if not self._run:
+			print ">>MongoDB already stopped"
+			return -1
+		self._run.send_signal(2)
+		self._run.wait()
 		self._run = None
-
-	def args_to_str(self):
-		return ''.join(map(lambda x: ' --'+x+' '+self._args[x], self._args))
-
-
+		print ">>Stopping MongoDB"

@@ -1,7 +1,20 @@
 #!/usr/bin/env python
-
 import os
 import time
+import psutil
+import socket
+from subprocess import Popen, PIPE
+
+
+@timet
+def get_time(self):
+	sock = socket.socket(socket.AF_INET)
+	sock.settimeout(120)
+	if self.start(False) == -1:
+		sock.close()
+		return -1
+	sock.connect(('localhost', int(self.port)))
+	sock.close()
 
 def chroot_(func):
 	def new_func(self, *args, **kw):
@@ -28,43 +41,33 @@ def cleanup(_clean):
 				os.remove(i)
 
 class DB:
-	_dir = ""
-	_exe = ""
-	_cli = ""
-	_cnf = ""
-	_log = "" 
+	def set_dir(self, _dir):
+		self._dir = _dir
 
-	_host = "localhost"
-	_port = ""
-
-	_run = None
-	_clean = []
-
-	def set_host(this, host, port = None):
-		this._host = host
-		if port != None :
-			this._port = int(_port)
-
-	def set_dir(this, _dir):
-		this._dir = _dir
-	
 	def set_port(self, port):
 		self.port = int(port)
-	
-	def init():
-		pass
-	
-	def flush_db():
+
+	def init(self):
 		pass
 
-	def save_snapshot():
+	def flush_db(self):
 		pass
 
-	def load_snapshot():
+	def save_snapshot(self):
 		pass
 
-	def start():
+	def load_snapshot(self):
 		pass
 
-	def stop():
+	def start(self):
 		pass
+
+	def stop(self):
+		pass
+
+	def mem(self):
+		if not _run:
+			print "<<Can't check size. Start "+self.__class__.__name__+" Please"
+			return -1
+		return psutil.Process(self._run.pid).get_ext_memory_info().rss
+#		return int(Popen(split('ps o rss -p '+str(self._run.pid)), stdout=PIPE).communicate().split()[1])

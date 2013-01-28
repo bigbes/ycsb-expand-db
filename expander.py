@@ -58,13 +58,13 @@ def get_tarantool(container):
 	Popen(split("git clone git://github.com/mailru/tarantool.git -b {0} tarantool-{0}".format(branch)), stdout=logfile, stderr=logfile).wait()
 	os.chdir("tarantool-" + branch)
 	Popen(split("git checkout -f " + revision), stdout=logfile, stderr=logfile).wait()
-	
+
 	_print('Building' + (' with client' if client else '') + '..')
 
 	envir = dict(os.environ)
 	envir['CFLAGS'] = ' -march=native '
 	Popen(split("cmake . -DENABLE_TRACE=OFF -DCMAKE_BUILD_TYPE=Release "+('-DENABLE_CLIENT=TRUE' if client else '')), stdout=logfile, stderr=logfile, env=envir).wait()
-	
+
 	if Popen(split("make -j"+Threads), stdout=logfile, stderr=logfile).wait() != 0:
 		print 'Tarantool make failed ' + branch + ' ' + revision
 		os.chdir('..')
@@ -81,11 +81,11 @@ def get_tarantool(container):
 		if client:
 			copy("tarantool-{0}/client/tarantool/tarantool".format(branch), i[0])
 		copy(curdir+"/confs/tarantool_"+i[2]+".cfg", i[0]+'/tarantool.cfg')
-	
+
 		os.chdir(i[0])
 		Popen(split("./tarantool_box --init-storage"), stdout=logfile, stderr=logfile).wait()
 		os.chdir("..")
-	
+
 	rmtree("tarantool-" + branch)
 	print 'Done!'
 	return ans
@@ -99,7 +99,7 @@ def get_redis(version):
 	except OSError:
 		print 'Redis already been built'
 		return [ans]
-	
+
 	_print('Downloading..')
 
 	archive = "redis-"+version
@@ -114,14 +114,15 @@ def get_redis(version):
 
 	_print('Building..')
 	os.chdir(archive)
-	if Popen(split("make -j"+Threads), stdout=logfile, stderr=logfile) != 0:
+	if Popen(split("make -j"+Threads), stdout=logfile, stderr=logfile).wait() != 0:
+		_print(os.getcwd())
 		print 'Redis make failed ' + version
 		os.chdir('..')
 		rmtree(ans[0])
 		rmtree(archive)
 		exit()
 	os.chdir('..')
-	
+
 	_print('Copying..')
 
 	copy(archive+'/src/redis-cli','rds_'+version)
@@ -146,9 +147,9 @@ def get_mongodb(version):
 	archive = ('mongodb-src-r'+version)
 	url = "http://fastdl.mongodb.org/src/{0}.tar.gz".format(archive)
 	source = urllib2.urlopen(url)
-	
+
 	open(archive+".tar.gz", "wb").write(source.read())
-	
+
 	tar = tarfile.open(archive+".tar.gz", "r:gz")
 	tar.extractall()
 	tar.close()
@@ -173,6 +174,7 @@ def get_mongodb(version):
 	_print ("Copying..")
 	copy(archive+"/mongod", ans[0])
 	copy(archive+"/mongo", ans[0])
+	copy(curdir+'/confs/mongodb_%s.conf' % (version), 'mongodb_'+version+'/mongodb.conf')
 
 	rmtree (archive)
 	os.remove(archive + '.tar.gz')
