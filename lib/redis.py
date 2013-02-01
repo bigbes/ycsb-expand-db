@@ -63,9 +63,12 @@ class Redis(DB):
 		print ">>Starting Redis"
 		self._run = Popen(shlex.split("./"+self._exe+" "+self._cnf))
 		print ">>Redis PID:", self._run.pid
-
+	
 	def stop(self):
-		if self._run:
-			print ">>Stopping Redis"
-			self._run.terminate()
+		if not self._run:
+			print ">>Redis already stopped"
+			return -1
+		self._run.terminate()
+		self._run.wait()
 		self._run = None
+		print ">>Stopping Redis"

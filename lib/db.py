@@ -5,6 +5,13 @@ import psutil
 import socket
 from subprocess import Popen, PIPE
 
+def timet(func):
+	def new_func(self, *args, **kw):
+		ts = time.time()
+		func(self, *args, **kw)
+		te = time.time()
+		return te-ts
+	return new_func
 
 @timet
 def get_time(self):
@@ -24,14 +31,6 @@ def chroot_(func):
 		result = func(self, *args, **kw)
 		os.chdir(_prev_root)
 		return result
-	return new_func
-
-def timet(func):
-	def new_func(self, *args, **kw):
-		ts = time.time()
-		func(self, *args, **kw)
-		te = time.time()
-		return te-ts
 	return new_func
 
 def cleanup(_clean):

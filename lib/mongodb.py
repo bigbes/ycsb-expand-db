@@ -64,7 +64,7 @@ class MongoDB(DB):
 		print ">>Cleanup MongoDB"
 
 	def flush_db(self):
-		if not self._run:
+		if self._run:
 			print "<<Start MongoDB, Please"
 			return -1
 		Popen(shlex.split(self._dir+self._cli+"localhost"
@@ -94,7 +94,6 @@ class MongoDB(DB):
 			print "<<MongoDB already started."
 			return -1
 		print ">>Starting MongoDB"
-#		args = shlex.split("./"+self._exe+self.args_to_str())
 		args = shlex.split("./"+self._exe+" -f mongodb.conf")
 		self._run = Popen(args)
 		if delay:
