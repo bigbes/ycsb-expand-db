@@ -2,19 +2,20 @@
 from subprocess import Popen, PIPE
 from shlex import split
 from shutil import copy2 as copy, rmtree
-from socket import gethostname
+from socket import gethostname, gethostbyname
 import sys
 import os
 import urllib2
 import tarfile
 
-Threads = '3'
+
+Threads = '5'
 DBS = ['MongoDB', 'Redis', 'Tarantool']
-MongoDB = ["2.2.2"]
-Redis = ["2.6.5"]
+MongoDB = ["v2.4"]
+Redis = ["2.6"]
 Tarantool_client = True
 Tarantool = [
-        ('master', '02a8b0c54dedc087600b491fe467a76345b73480', ['tree', 'hash'])
+        ('master', 'c7aa5878f838024b0ad3a619c3b51c0f6ac7b064', ['tree', 'hash'])
         ]
 
 curdir = os.getcwd()
@@ -55,8 +56,9 @@ def get_tarantool(container):
             print 'Tarantool already been built'
             return ans
     _print('Downloading..')
+    archive = "tarantool-"+branch
     Popen(split("git clone git://github.com/mailru/tarantool.git -b {0} tarantool-{0}".format(branch)), stdout=logfile, stderr=logfile).wait()
-    os.chdir("tarantool-" + branch)
+    os.chdir(archive)
     Popen(split("git checkout -f " + revision), stdout=logfile, stderr=logfile).wait()
 
     _print('Building' + (' with client' if client else '') + '..')
@@ -101,16 +103,14 @@ def get_redis(version):
         return [ans]
 
     _print('Downloading..')
-
-    archive = "redis-"+version
-    url = "http://redis.googlecode.com/files/{0}.tar.gz".format(archive)
-    source = urllib2.urlopen(url)
-
-    open(archive+".tar.gz", "wb").write(source.read())
-
-    tar = tarfile.open(archive+".tar.gz", "r:gz")
-    tar.extractall()
-    tar.close()
+    branch = version
+    archive = "redis-"+branch
+    if (os.path.exists(archive) and os.path.isdir(archive)):
+        os.chdir(archive)
+        Popen(split('git pull'), stdout=logfile, stderr=logfile).wait()
+        os.chdir('..')
+    else:
+        Popen(split(('git clone git://github.com/antirez/redis.git -b {0} {1}').format(branch, archive)), stdout=logfile, stderr=logfile).wait()
 
     _print('Building..')
     os.chdir(archive)
@@ -130,7 +130,6 @@ def get_redis(version):
     copy(curdir+'/confs/redis_%s.conf' % (version), 'rds_'+version+'/redis.conf')
 
     rmtree(archive)
-    os.remove(archive+".tar.gz")
     print 'Done!'
     return [ans]
 
@@ -144,40 +143,41 @@ def get_mongodb(version):
         return [ans]
 
     _print('Downloading..')
-    archive = ('mongodb-src-r'+version)
-    url = "http://fastdl.mongodb.org/src/{0}.tar.gz".format(archive)
-    source = urllib2.urlopen(url)
-
-    open(archive+".tar.gz", "wb").write(source.read())
-
-    tar = tarfile.open(archive+".tar.gz", "r:gz")
-    tar.extractall()
-    tar.close()
-
-    _print("Patching..")
-    os.chdir(archive)
-    if Popen(split("patch  -i ../../new-db-patches/mongodb_{1}.patch -p1".format(curdir+'/new-db-patches/', version)), stdout=logfile, stderr=logfile).wait() != 0:
-        print 'MongoDB patching failed ' + version + tmp
+    branch = version
+    archive = "mongodb-"+branch
+    if (os.path.exists(archive) and os.path.isdir(archive)):
+        os.chdir(archive)
+        Popen(split('git pull'), stdout=logfile, stderr=logfile).wait()
         os.chdir('..')
-        rmtree(ans[0])
-        rmtree(archive)
-        exit()
+    else:
+        Popen(split(('git clone git://github.com/mongodb/mongo.git -b {0} mongodb-{0}').format(branch)),
+              stdout=logfile, stderr=logfile).wait()
+
+    # _print("Patching..")
+    # os.chdir(archive)
+    # if Popen(split("patch  -i ../../new-db-patches/mongodb_{1}.patch -p1".format(curdir+'/new-db-patches/',
+    # version)), stdout=logfile, stderr=logfile).wait() != 0:
+    #     print 'MongoDB patching failed ' + version + tmp
+    #     os.chdir('..')
+    #     rmtree(ans[0])
+    #     rmtree(archive)
+    #     exit()
     _print ("Building..")
+    os.chdir(archive)
     if Popen(split("scons mongod mongo -j "+Threads), stdout=logfile, stderr=logfile).wait() != 0:
-        print 'MongoDB make failed ' + version + tmp
+        print 'MongoDB make failed ' + version
         os.chdir('..')
         rmtree(ans[0])
         rmtree(archive)
         exit()
     os.chdir('..')
 
-    _print ("Copying..")
+    _print("Copying..")
     copy(archive+"/mongod", ans[0])
     copy(archive+"/mongo", ans[0])
     copy(curdir+'/confs/mongodb_%s.conf' % (version), 'mongodb_'+version+'/mongodb.conf')
 
-    rmtree (archive)
-    os.remove(archive + '.tar.gz')
+    rmtree(archive)
     print "Done!"
     return [ans]
 
@@ -203,7 +203,7 @@ for i in DBS:
             dbfile.write(confstr2 % {
                 'name' : k[0],
                 '_type' : i.lower(),
-                '_host' : gethostname(),
+                '_host' : gethostbyname(gethostname()),
                 '_port' : Port
                 })
 

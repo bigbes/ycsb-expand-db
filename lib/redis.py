@@ -57,7 +57,7 @@ class Redis(DB):
 		return get_time(self)
 
 	@chroot_
-	def start(self):
+	def start(self, delay):
 		if self._run:
 			print "Redis already started"
 		print ">>Starting Redis"

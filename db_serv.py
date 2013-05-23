@@ -7,8 +7,6 @@ import socket
 from pprint import pprint
 from configobj import ConfigObj
 
-
-
 args = []
 port = 31897
 
@@ -53,7 +51,7 @@ def main(_db_spec):
     print ">>Started"
     try:
         while True:
-            sock.listen(1)
+            sock.listen(10)
             conn, addr = sock.accept()
             data = conn.recv(1024).split()
             pprint (data)
@@ -63,7 +61,7 @@ def main(_db_spec):
                 result = "FAIL WrongDatabase"
             else:
                 result = {
-                    'run'   : (lambda x : "OK" if not _db_spec[x].start(delay=True) else "FAIL CantStart"),
+                    'run'   : (lambda x : "OK" if not _db_spec[x].start(True) else "FAIL CantStart"),
                     'stop'  : (lambda x : "OK" if not _db_spec[x].stop()            else "FAIL CantStop"),
                     'init'  : (lambda x : "OK" if not _db_spec[x].init()            else "FAIL CantInit"),
                     'ss'    : (lambda x : "OK" if not _db_spec[x].save_snapshot()   else "FAIL CantSaveSnap"),

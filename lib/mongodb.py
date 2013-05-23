@@ -86,7 +86,9 @@ class MongoDB(DB):
 		return 0
 
 	@chroot_
-	def start(self, delay=True):
+	def start(self, delay = None):
+		if delay == None:
+			delay = True
 		def args_to_str(self):
 			return ''.join(map(lambda x: ' --'+x+' '+self._args[x], self._args))
 
@@ -97,7 +99,7 @@ class MongoDB(DB):
 		args = shlex.split("./"+self._exe+" -f mongodb.conf")
 		self._run = Popen(args)
 		if delay:
-			get_time(self)
+			print get_time(self)
 		print ">>MongoDB PID:", self._run.pid
 
 	def stop(self):

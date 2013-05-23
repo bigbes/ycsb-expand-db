@@ -15,12 +15,21 @@ def timet(func):
 
 @timet
 def get_time(self):
+	def fun():
+		try:
+			sock.connect(('localhost', int(self.port)))
+		except socket.error:
+			time.sleep(0.01)
+			return -1
+		return 0
+		
 	sock = socket.socket(socket.AF_INET)
 	sock.settimeout(120)
 	if self.start(False) == -1:
 		sock.close()
 		return -1
-	sock.connect(('localhost', int(self.port)))
+	while(fun()):
+		pass
 	sock.close()
 
 def chroot_(func):
@@ -58,7 +67,7 @@ class DB:
 	def load_snapshot(self):
 		pass
 
-	def start(self):
+	def start(self, delay):
 		pass
 
 	def stop(self):
