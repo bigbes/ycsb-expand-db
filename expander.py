@@ -136,7 +136,7 @@ def get_redis(version):
     return [ans]
 
 
-def get_mongodb(version):
+def _get_mongodb(version):
     ans = ('mongodb_' + version, os.getcwd() + '/mongodb_' + version)
     _print('MongoDB ' + version + '..')
     try:
@@ -175,6 +175,31 @@ def get_mongodb(version):
     print "Done!"
     return [ans]
 
+def get_mongodb(version):
+    ans = ('mongodb_' + version, os.getcwd() + '/mongodb-' + version)
+    _print('MongoDB ' + version + '..')
+    try:
+        os.mkdir(ans[1])
+    except OSError:
+        print 'MongoDB already been built'
+        return [ans]
+
+    _print('Downloading..')
+    archive = "mongodb-"+version
+
+    url = "http://bigbes.fry.su/%s.tar.gz" % archive
+    source = urllib2.urlopen(url)
+
+    open(archive+".tar.gz", "wb").write(source.read())
+
+    tar = tarfile.open(archive+".tar.gz", "r:gz")
+    tar.extractall()
+    tar.close()
+
+    os.remove(archive+".tar.gz")
+    print "Done!"
+    return [ans]
+
 def get_tokumx(version):
     ans = ('tokumx_' + version, os.getcwd() + '/tokumx-' + version)
     _print('TokuMX ' + version + '..')
@@ -199,6 +224,7 @@ def get_tokumx(version):
     os.remove(archive+".tar.gz")
     print "Done!"
     return [ans]
+
 try:
     os.mkdir('envir')
 except OSError:
@@ -216,7 +242,7 @@ for i in DBS:
             conffile.write(confstr1 % {
                 'name' : k[0],
                 '_dir' : k[1],
-                '_type': i if i != "TokuMX" else "MongoDB"
+                '_type': i
                 })
             dbfile.write(confstr2 % {
                 'name' : k[0],
