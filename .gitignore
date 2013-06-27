@@ -1,0 +1,5 @@
+envir/
+envir/*
+*.pyc
+*.bak
+logfile

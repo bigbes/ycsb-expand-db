@@ -10,12 +10,14 @@ import tarfile
 
 
 Threads = '5'
-DBS = ['MongoDB', 'Redis', 'Tarantool']
+DBS = ['MongoDB', 'Redis', 'Tarantool', 'TokuMX']
+#DBS = ['TokuMX']
 MongoDB = ["v2.4"]
+TokuMX = ["1.0"]
 Redis = ["2.6"]
 Tarantool_client = True
 Tarantool = [
-        ('master', 'c7aa5878f838024b0ad3a619c3b51c0f6ac7b064', ['tree', 'hash'])
+        ('master', 'a07b6e21b7bebdf14b56531b6af8d069e8ed090a', ['tree', 'hash'])
         ]
 
 curdir = os.getcwd()
@@ -34,7 +36,7 @@ confstr2 = """
     [[%(name)s]]
         _type = %(_type)s
         host = %(_host)s
-        db_port = 
+        db_port =  
         serv_port = %(_port)s"""
 
 def _print(str):
@@ -57,7 +59,7 @@ def get_tarantool(container):
             return ans
     _print('Downloading..')
     archive = "tarantool-"+branch
-    Popen(split("git clone git://github.com/mailru/tarantool.git -b {0} tarantool-{0}".format(branch)), stdout=logfile, stderr=logfile).wait()
+    Popen(split("git clone git://github.com/mailru/tarantool.git --recursive -b {0} tarantool-{0}".format(branch)), stdout=logfile, stderr=logfile).wait()
     os.chdir(archive)
     Popen(split("git checkout -f " + revision), stdout=logfile, stderr=logfile).wait()
 
@@ -133,6 +135,7 @@ def get_redis(version):
     print 'Done!'
     return [ans]
 
+
 def get_mongodb(version):
     ans = ('mongodb_' + version, os.getcwd() + '/mongodb_' + version)
     _print('MongoDB ' + version + '..')
@@ -153,15 +156,6 @@ def get_mongodb(version):
         Popen(split(('git clone git://github.com/mongodb/mongo.git -b {0} mongodb-{0}').format(branch)),
               stdout=logfile, stderr=logfile).wait()
 
-    # _print("Patching..")
-    # os.chdir(archive)
-    # if Popen(split("patch  -i ../../new-db-patches/mongodb_{1}.patch -p1".format(curdir+'/new-db-patches/',
-    # version)), stdout=logfile, stderr=logfile).wait() != 0:
-    #     print 'MongoDB patching failed ' + version + tmp
-    #     os.chdir('..')
-    #     rmtree(ans[0])
-    #     rmtree(archive)
-    #     exit()
     _print ("Building..")
     os.chdir(archive)
     if Popen(split("scons mongod mongo -j "+Threads), stdout=logfile, stderr=logfile).wait() != 0:
@@ -181,6 +175,30 @@ def get_mongodb(version):
     print "Done!"
     return [ans]
 
+def get_tokumx(version):
+    ans = ('tokumx_' + version, os.getcwd() + '/tokumx-' + version)
+    _print('TokuMX ' + version + '..')
+    try:
+        os.mkdir(ans[1])
+    except OSError:
+        print 'TokuMX already been built'
+        return [ans]
+
+    _print('Downloading..')
+    archive = "tokumx-"+version
+
+    url = "http://bigbes.fry.su/%s.tar.gz" % archive
+    source = urllib2.urlopen(url)
+
+    open(archive+".tar.gz", "wb").write(source.read())
+
+    tar = tarfile.open(archive+".tar.gz", "r:gz")
+    tar.extractall()
+    tar.close()
+
+    os.remove(archive+".tar.gz")
+    print "Done!"
+    return [ans]
 try:
     os.mkdir('envir')
 except OSError:
@@ -198,7 +216,7 @@ for i in DBS:
             conffile.write(confstr1 % {
                 'name' : k[0],
                 '_dir' : k[1],
-                '_type': i
+                '_type': i if i != "TokuMX" else "MongoDB"
                 })
             dbfile.write(confstr2 % {
                 'name' : k[0],

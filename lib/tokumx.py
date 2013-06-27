@@ -14,7 +14,7 @@ from subprocess import PIPE, STDOUT, Popen
 from copy import deepcopy
 from pprint import pprint
 
-class MongoDB(DB):
+class TokuMX(DB):
     _exe = "mongod"
     _cli = "mongo"
     _cnf = "mongodb.conf"
@@ -61,26 +61,26 @@ class MongoDB(DB):
 
     def init(self):
         self.cleanup()
-        print ">>Cleanup MongoDB"
+        print ">>Cleanup TokuMX"
 
     def flush_db(self):
         if self._run:
-            print "<<Start MongoDB, Please"
+            print "<<Start TokuMX, Please"
             return -1
         Popen(shlex.split(self._dir+self._cli+"localhost"
             +self.port+"/ycsb --eval \"db.dropDatabase()\"")).wait()
-        print ">>Flushing MongoDB"
+        print ">>Flushing TokuMX"
 
     def load_snapshot(self):
         if self._run:
-            print "<<Stop MongoDB, Please"
+            print "<<Stop TokuMX, Please"
             return -1
         return get_time(self)
 
     def add_arg(self, args):
         self._args[str(args[0])] = str(args[1])
 
-    # Cause MongoDB use Memory Maped files - not implementing
+    # Cause TokuMX(MongoDB) use Memory Maped files - not implementing
     def save_snapshot(self):
         print "<<Not Yet Implemented"
         return 0
@@ -94,20 +94,20 @@ class MongoDB(DB):
             return ''.join(map(lambda x: ' --'+x+' '+self._args[x], self._args))
         os.environ["LD_LIBRARY_PATH"] = "."
         if self._run:
-            print "<<MongoDB already started."
+            print "<<TokuMX already started."
             return -1
-        print ">>Starting MongoDB"
+        print ">>Starting TokuMX"
         args = shlex.split("./"+self._exe+" -f mongodb.conf")
         self._run = Popen(args)
         if delay:
             print get_time(self)
-        print ">>MongoDB PID:", self._run.pid
+        print ">>TokuMX PID:", self._run.pid
 
     def stop(self):
         if not self._run:
-            print ">>MongoDB already stopped"
+            print ">>TokuMX already stopped"
             return -1
         self._run.send_signal(2)
         self._run.wait()
         self._run = None
-        print ">>Stopping MongoDB"
+        print ">>Stopping TokuMX"
