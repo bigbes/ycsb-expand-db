@@ -47,6 +47,7 @@ def main(_db_spec):
     def undefined(db):
         return "FAIL UndefinedCommand"
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(('', port))
     print ">>Started"
     try:
@@ -61,7 +62,7 @@ def main(_db_spec):
                 result = "FAIL WrongDatabase"
             else:
                 result = {
-                    'run'   : (lambda x : "OK" if not _db_spec[x].start(True) else "FAIL CantStart"),
+                    'run'   : (lambda x : "OK" if not _db_spec[x].start(True)       else "FAIL CantStart"),
                     'stop'  : (lambda x : "OK" if not _db_spec[x].stop()            else "FAIL CantStop"),
                     'init'  : (lambda x : "OK" if not _db_spec[x].init()            else "FAIL CantInit"),
                     'ss'    : (lambda x : "OK" if not _db_spec[x].save_snapshot()   else "FAIL CantSaveSnap"),

@@ -10,14 +10,11 @@ import tarfile
 
 
 Threads = '5'
-DBS = ['MongoDB', 'Redis', 'Tarantool', 'TokuMX']
-#DBS = ['TokuMX']
-MongoDB = ["v2.4"]
-TokuMX = ["1.0"]
-Redis = ["2.6"]
-Tarantool_client = True
+DBS = ['Redis', 'Tarantool', 'MongoDB']
+MongoDB = ["2.6.4"]
+Redis = ["2.8.3"]
 Tarantool = [
-        ('master', 'a07b6e21b7bebdf14b56531b6af8d069e8ed090a', ['tree', 'hash'])
+        ('master', '4e1fb3c6061770f31f2df42a6c7936a7d784a88b', ['tree', 'hash'])
         ]
 
 curdir = os.getcwd()
@@ -46,7 +43,6 @@ def _print(str):
 def get_tarantool(container):
     branch = container[0]
     revision = container[1]
-    client = Tarantool_client
     rev = container[1][-6:-1]
     fstr = 'tnt_' + branch + '_%s_'+rev
     ans = [(fstr % (i), os.getcwd() + '/' + fstr %(i), i) for i in container[2]]
@@ -63,11 +59,11 @@ def get_tarantool(container):
     os.chdir(archive)
     Popen(split("git checkout -f " + revision), stdout=logfile, stderr=logfile).wait()
 
-    _print('Building' + (' with client' if client else '') + '..')
+    _print('Building..')
 
     envir = dict(os.environ)
     envir['CFLAGS'] = ' -march=native '
-    Popen(split("cmake . -DENABLE_TRACE=OFF -DCMAKE_BUILD_TYPE=Release "+('-DENABLE_CLIENT=TRUE' if client else '')), stdout=logfile, stderr=logfile, env=envir).wait()
+    Popen(split("cmake . -DENABLE_TRACE=OFF -DCMAKE_BUILD_TYPE=Release"), stdout=logfile, stderr=logfile, env=envir).wait()
 
     if Popen(split("make -j"+Threads), stdout=logfile, stderr=logfile).wait() != 0:
         print 'Tarantool make failed ' + branch + ' ' + revision
@@ -81,14 +77,8 @@ def get_tarantool(container):
 
     os.chdir("..")
     for i in ans:
-        copy("tarantool-{0}/src/box/tarantool_box".format(branch), i[0])
-        if client:
-            copy("tarantool-{0}/client/tarantool/tarantool".format(branch), i[0])
-        copy(curdir+"/confs/tarantool_"+i[2]+".cfg", i[0]+'/tarantool.cfg')
-
-        os.chdir(i[0])
-        Popen(split("./tarantool_box --init-storage"), stdout=logfile, stderr=logfile).wait()
-        os.chdir("..")
+        copy("tarantool-{0}/src/tarantool".format(branch), i[0])
+#        copy(curdir+"/confs/tarantool_"+i[2]+".cfg", i[0]+'/tarantool.cfg')
 
     rmtree("tarantool-" + branch)
     print 'Done!'
@@ -187,32 +177,7 @@ def get_mongodb(version):
     _print('Downloading..')
     archive = "mongodb-"+version
 
-    url = "http://bigbes.fry.su/%s.tar.gz" % archive
-    source = urllib2.urlopen(url)
-
-    open(archive+".tar.gz", "wb").write(source.read())
-
-    tar = tarfile.open(archive+".tar.gz", "r:gz")
-    tar.extractall()
-    tar.close()
-
-    os.remove(archive+".tar.gz")
-    print "Done!"
-    return [ans]
-
-def get_tokumx(version):
-    ans = ('tokumx_' + version, os.getcwd() + '/tokumx-' + version)
-    _print('TokuMX ' + version + '..')
-    try:
-        os.mkdir(ans[1])
-    except OSError:
-        print 'TokuMX already been built'
-        return [ans]
-
-    _print('Downloading..')
-    archive = "tokumx-"+version
-
-    url = "http://bigbes.fry.su/%s.tar.gz" % archive
+    url = "http://bigbe.su/%s.tar.gz" % archive
     source = urllib2.urlopen(url)
 
     open(archive+".tar.gz", "wb").write(source.read())
