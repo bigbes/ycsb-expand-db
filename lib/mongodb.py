@@ -20,30 +20,15 @@ class MongoDB(DB):
     _cnf = "mongodb.conf"
     _log = "mongodb.log"
 
-    st_args = {
-            'dbpath'            : './temp',
-            'logpath'           : './mongodb.log',
-            'diaglog'           : '3',
-            'logappend'         : '',
-            'nojournal'         : '',
-            'noauth'            : '',
-            'nohttpinterface'   : '',
-            'noprealloc'        : ''
-            }
-
     def __init__(self, _dir):
         self._dir = _dir
         self._run = None
-        self.port = '27017'
-        self._args = deepcopy(self.st_args)
-        self.add_arg(('port', self.port))
         if not (os.path.exists(self._dir+'/'+self._exe) and
                 os.path.exists(self._dir+'/'+self._cli)):
             raise Exception('No such file or directory in DB: ' + self._dir)
 
     def set_port(self, port):
         self.port = port
-        self.add_arg(('port', self.port))
 
     def __del__(self):
         self.stop()
@@ -56,6 +41,7 @@ class MongoDB(DB):
             pass
         try:
             os.mkdir('temp')
+            os.mkdir('temp/journal')
         except OSError:
             pass
 
@@ -77,9 +63,6 @@ class MongoDB(DB):
             return -1
         return get_time(self)
 
-    def add_arg(self, args):
-        self._args[str(args[0])] = str(args[1])
-
     # Cause MongoDB use Memory Maped files - not implementing
     def save_snapshot(self):
         print "<<Not Yet Implemented"
@@ -90,8 +73,6 @@ class MongoDB(DB):
 
         if delay == None:
             delay = True
-        def args_to_str(self):
-            return ''.join(map(lambda x: ' --'+x+' '+self._args[x], self._args))
         os.environ["LD_LIBRARY_PATH"] = "."
         if self._run:
             print "<<MongoDB already started."

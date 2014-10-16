@@ -13,7 +13,7 @@ class Tarantool(DB):
 	_cnf = "tarantool.lua"
 	_log = "tarantool.log"
 
-	_clean = [".snap", ".xlog", ".log"]
+	_clean = [".snap", ".xlog"]
 
 	def __init__(self, _dir):
 		self._dir = _dir
