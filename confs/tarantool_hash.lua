@@ -1,6 +1,6 @@
 box.cfg {
    listen=3301,
-   slab_alloc_arena=4,
+   slab_alloc_arena=8,
    logger="tarantool.log",
    log_level=5,
    logger_nonblock=true,
